@@ -1,6 +1,6 @@
 # AI エージェント向けセットアッププロンプト
 
-これは、Sibelius × GitHub 保全システムのセットアップを AI エージェント（Claude、Codex、ChatGPT など）に代行させるためのプロンプトです。
+これは、Sibelius GitKeeper のセットアップを AI エージェント（Claude、Codex、ChatGPT など）に代行させるためのプロンプトです。
 
 ## 使い方
 

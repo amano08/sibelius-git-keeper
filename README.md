@@ -1,4 +1,4 @@
-# Sibelius × GitHub 保全システム
+# Sibelius GitKeeper
 
 Sibelius の譜面ファイル（.sib）を、保存のたびに GitHub の **private repo** へ自動で送り、版として残すための仕組みです。
 
