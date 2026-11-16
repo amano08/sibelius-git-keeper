@@ -1,0 +1,88 @@
+{
+	Initialize "() {
+		// GitKeeperImport.plg  (sibelius-git-keeper)
+		//
+		// コマンド名: 管轄内へ取り込む
+		// 働き: 開いている譜面を曲フォルダへ移して登録する。
+		//
+		// 現行の制限:
+		//   Sibelius.SelectFolder でフォルダ選択ダイアログは開けるが、
+		//   返る Folder オブジェクトからは絶対パスの取得が保証されない
+		//   ため、本コマンドでは次の運用とする。
+		//     - 既に管轄内の場合: keeper.py save を起動して登録する
+		//     - 管轄外の場合: 「名前を付けて保存」で曲フォルダへ保存し直して
+		//       から再実行するよう案内を表示する
+		if (Sibelius.ProgramVersion > 20200600) {
+			SetInterpreterOption(TreatSingleCharacterAsString);
+		}
+		AddToPluginsMenu('管轄内へ取り込む', 'Run');
+	}"
+
+	Run "() {
+		score = Sibelius.ActiveScore;
+		if (score = null) {
+			Sibelius.MessageBox('譜面が開かれていません。');
+			return False;
+		}
+		path = score.FileName;
+		repo = '__REPO_ROOT__';
+		keeper = repo & '/_system/keeper.py';
+		if (path != '') {
+			if (Self.IsInsideRepo(path, repo)) {
+				params = CreateSparseArray(keeper, 'save', '--file', path);
+				Sibelius.LaunchApplication('/usr/bin/python3', params, True);
+				Sibelius.MessageBox('この譜面は管轄内です。登録と保存を行いました。');
+				return True;
+			}
+		}
+		Sibelius.MessageBox('取り込みの手順: メニューの「ファイル > 名前を付けて保存」で、この repo の中の曲フォルダへ保存し直してください。新しい曲フォルダは Finder で作れます。保存し直したら、もう一度「管轄内へ取り込む」を実行してください。');
+		return True;
+	}"
+
+	IsInsideRepo "(path, repo) {
+		prefix = repo & '/';
+		if (Self.StartsWith(path, prefix) = False) {
+			return False;
+		}
+		rest = Self.DropPrefix(path, prefix);
+		if (Self.ContainsChar(rest, '/') = False) {
+			return False;
+		}
+		if (Self.StartsWith(rest, '_system/')) {
+			return False;
+		}
+		if (Self.StartsWith(rest, '.')) {
+			return False;
+		}
+		return True;
+	}"
+
+	StartsWith "(s, prefix) {
+		if (Length(s) < Length(prefix)) {
+			return False;
+		}
+		i = 0;
+		while (i < Length(prefix)) {
+			if (Substring(s, i, 1) != Substring(prefix, i, 1)) {
+				return False;
+			}
+			i = i + 1;
+		}
+		return True;
+	}"
+
+	DropPrefix "(s, prefix) {
+		return Substring(s, Length(prefix), Length(s) - Length(prefix));
+	}"
+
+	ContainsChar "(s, ch) {
+		i = 0;
+		while (i < Length(s)) {
+			if (Substring(s, i, 1) = ch) {
+				return True;
+			}
+			i = i + 1;
+		}
+		return False;
+	}"
+}

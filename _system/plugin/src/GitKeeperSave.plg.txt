@@ -1,0 +1,132 @@
+{
+	Initialize "() {
+		// GitKeeperSave.plg  (sibelius-git-keeper)
+		//
+		// コマンド名: gitと併せて保存 (Cmd+S の割り当て先)
+		// 働き: 開いている譜面を保存し、管轄内であれば keeper.py save を
+		//       背面 (hide=True) で起動して commit / push を任せる。
+		//       管轄外であれば通常の保存のみを行い、管轄外メッセージを
+		//       表示する (抑制フラグがある場合は表示しない)。
+		//
+		// __REPO_ROOT__ と __HOME__ は setup.sh が配置時に実際の値へ置換する。
+		// ManuScript には保存イベント (OnSave) が無いため、本コマンドの
+		// 実行が保存フックの役割を果たす。
+		if (Sibelius.ProgramVersion > 20200600) {
+			SetInterpreterOption(TreatSingleCharacterAsString);
+		}
+		AddToPluginsMenu('gitと併せて保存', 'Run');
+		// Cmd+S の割り当て確認 (初回のみ)。
+		// ManuScript にはショートカットの読み取り・変更 API が無いため、
+		// 割り当て状態は watcher / keeper が痕跡 (.sfs と plist) から
+		// 判定し、cmds_unassigned.flag に維持する。未割り当てが確定して
+		// いて、確認済みフラグが無い場合に限り、ここで一度だけ案内する。
+		// 案内と同時に確認済みフラグを立てるため、次回からは出ない。
+		//
+		// 注意 (実機検証 2026-11-15): LaunchApplication を連続して呼ぶと、
+		// 先行する起動が完了するまでの後続分が無言で落ちる (Initialize 内
+		// 4 連呼で 2・4 回目が欠落、Run 内 4 連呼では 1 回目しか届かなかった。
+		// 他プラグインの Initialize と同時になった場合も同様に落ち得る)。
+		// そのためフラグ立ては、ダイアログの前と後の 2 回に分けて行う。
+		// モーダルを挟んだ呼び出しは競合しない (実測)。flag --on は冪等
+		// なので、両方届いても問題ない。
+		configDir = '__HOME__/.config/sibelius-git-keeper';
+		if (Sibelius.FileExists(configDir & '/cmds_confirmed.flag') = False) {
+			if (Sibelius.FileExists(configDir & '/cmds_unassigned.flag')) {
+				keeperPath = '__REPO_ROOT__/_system/keeper.py';
+				flagParams = CreateSparseArray(keeperPath, 'flag', '--name', 'cmds_confirmed', '--on');
+				Sibelius.LaunchApplication('/usr/bin/python3', flagParams, True);
+				Sibelius.MessageBox('GitKeeper からのお知らせです。Cmd+S はまだ「gitと併せて保存」に割り当てられていません。このままでは Cmd+S は通常の保存だけを行い、GitHub への保全はされません。割り当てるには、Sibelius の環境設定で「キーボードショートカット」ページを開き、Cmd+S を「gitと併せて保存」へ割り当て直してください（プラグインから自動で割り当てることはできません）。割り当てた後も、ネット接続がない場合や git の準備ができていない場合は、通常の保存だけが行われます。このお知らせは今回限り表示されます。');
+				Sibelius.LaunchApplication('/usr/bin/python3', flagParams, True);
+			}
+		}
+	}"
+
+	Run "() {
+		score = Sibelius.ActiveScore;
+		if (score = null) {
+			Sibelius.MessageBox('譜面が開かれていません。');
+			return False;
+		}
+		path = score.FileName;
+		if (path = '') {
+			Sibelius.MessageBox('この譜面はまだ一度も保存されていません。曲フォルダへ名前を付けて保存してから、もう一度実行してください。');
+			return False;
+		}
+		repo = '__REPO_ROOT__';
+		keeper = repo & '/_system/keeper.py';
+		inside = Self.IsInsideRepo(path, repo);
+		// 保存は組み込みの保存コマンドで行う（通常の保存と同じ意味論に
+		// するため。SaveAs は、組み込み保存コマンドが無い環境向けの
+		// フォールバック）。
+		// 実機検証（2026-11-15）では、本ビルドの Sibelius は未編集でも
+		// 保存のたびに .sib 全体を別バイトで書き直すことが判明している。
+		// そのため「gitと併せて保存」を実行すると、その都度 keeper が
+		// 変更を検知して commit を作る（仕様書 8.4 項・第15章の改定どおり）。
+		// keeper の「変更なし」判定は、ファイルが実際に変わっていない
+		// 場合（監視経由・keeper の手動実行時）の安全弁として残る。
+		if (Sibelius.CommandExists(Cmd('Save'))) {
+			Sibelius.Execute(Cmd('Save'));
+		} else {
+			score.SaveAs(path, 'SIBL');
+		}
+		if (inside) {
+			params = CreateSparseArray(keeper, 'save', '--file', path);
+			Sibelius.LaunchApplication('/usr/bin/python3', params, True);
+		} else {
+			flagfile = '__HOME__/.config/sibelius-git-keeper/suppress_ooj.flag';
+			if (Sibelius.FileExists(flagfile) = False) {
+				Sibelius.MessageBox('git保全ディレクトリの管轄外に配置されています。通常の保存のみ実行します（以降このメッセージを表示しない）');
+				params = CreateSparseArray(keeper, 'flag', '--name', 'suppress_ooj', '--on');
+				Sibelius.LaunchApplication('/usr/bin/python3', params, True);
+			}
+		}
+		return True;
+	}"
+
+	IsInsideRepo "(path, repo) {
+		prefix = repo & '/';
+		if (Self.StartsWith(path, prefix) = False) {
+			return False;
+		}
+		rest = Self.DropPrefix(path, prefix);
+		if (Self.ContainsChar(rest, '/') = False) {
+			return False;
+		}
+		if (Self.StartsWith(rest, '_system/')) {
+			return False;
+		}
+		if (Self.StartsWith(rest, '.')) {
+			return False;
+		}
+		return True;
+	}"
+
+	StartsWith "(s, prefix) {
+		if (Length(s) < Length(prefix)) {
+			return False;
+		}
+		i = 0;
+		while (i < Length(prefix)) {
+			if (Substring(s, i, 1) != Substring(prefix, i, 1)) {
+				return False;
+			}
+			i = i + 1;
+		}
+		return True;
+	}"
+
+	DropPrefix "(s, prefix) {
+		return Substring(s, Length(prefix), Length(s) - Length(prefix));
+	}"
+
+	ContainsChar "(s, ch) {
+		i = 0;
+		while (i < Length(s)) {
+			if (Substring(s, i, 1) = ch) {
+				return True;
+			}
+			i = i + 1;
+		}
+		return False;
+	}"
+}

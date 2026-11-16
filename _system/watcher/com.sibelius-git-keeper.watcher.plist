@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  sibelius-git-keeper 監視用 LaunchAgent の雛形。
+  setup.sh が __WATCHER_PATH__ / __REPO_ROOT__ / __HOME__ を実際の値に
+  置換して ~/Library/LaunchAgents/ へ配置する。
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.sibelius-git-keeper.watcher</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>python3</string>
+        <string>__WATCHER_PATH__</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/sibelius-git-keeper/watcher.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/sibelius-git-keeper/watcher.log</string>
+    <!-- 対象 repo は設定ファイル (__HOME__/.config/sibelius-git-keeper/config.json)
+         から読む。__REPO_ROOT__ は配置時点の clone 先の記録用にコメントで残す。
+         repo root at setup: __REPO_ROOT__ -->
+</dict>
+</plist>

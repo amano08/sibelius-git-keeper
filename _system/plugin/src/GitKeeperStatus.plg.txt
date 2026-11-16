@@ -1,0 +1,36 @@
+{
+	Initialize "() {
+		// GitKeeperStatus.plg  (sibelius-git-keeper)
+		//
+		// コマンド名: 状態確認
+		// 働き: keeper.py status --open を背面で起動する。keeper 側が結果を
+		//       テキストファイルに書き出し、既定のエディタで開く。
+		//       (ManuScript から外部コマンドの標準出力を同期で受け取る手段が
+		//        無いため、この形にしている)
+		//
+		// 実機検証 (2026-11-15) で確定した作法:
+		//   - Initialize で AddToPluginsMenu を呼ばないと、コマンドが
+		//     プラグインメニューに現れず、Sibelius Connect からも
+		//     呼び出せない (invokePlugin が result:false になる)
+		//   - LaunchApplication の parameters に文字列を渡すと、それが
+		//     「単一のパラメータ」として渡ってしまう。複数の引数は
+		//     CreateSparseArray で渡す
+		//   - ファイル先頭 (波括弧の外) にコメントを置くと読み込まれない
+		AddToPluginsMenu('状態確認', 'Run');
+	}"
+
+	Run "() {
+		repo = '__REPO_ROOT__';
+		keeper = repo & '/_system/keeper.py';
+		params = CreateSparseArray(keeper, 'status', '--open');
+		score = Sibelius.ActiveScore;
+		if (score != null) {
+			path = score.FileName;
+			if (path != '') {
+				params = CreateSparseArray(keeper, 'status', '--open', '--file', path);
+			}
+		}
+		Sibelius.LaunchApplication('/usr/bin/python3', params, True);
+		return True;
+	}"
+}

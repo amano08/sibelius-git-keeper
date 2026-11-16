@@ -1,0 +1,25 @@
+{
+	Initialize "() {
+		// GitKeeperSettings.plg  (sibelius-git-keeper)
+		//
+		// コマンド名: 設定
+		// 働き: 対象 repo の場所を表示し、管轄外メッセージの抑制を
+		//       解除して再表示に戻す。対象 repo の変更は setup.sh の
+		//       再実行で行う (プラグイン内では行わない)。
+		AddToPluginsMenu('設定', 'Run');
+	}"
+
+	Run "() {
+		repo = '__REPO_ROOT__';
+		keeper = repo & '/_system/keeper.py';
+		flagfile = '__HOME__/.config/sibelius-git-keeper/suppress_ooj.flag';
+		if (Sibelius.FileExists(flagfile)) {
+			params = CreateSparseArray(keeper, 'flag', '--name', 'suppress_ooj', '--off');
+			Sibelius.LaunchApplication('/usr/bin/python3', params, True);
+			Sibelius.MessageBox('管轄外メッセージの表示を再開しました。対象 repo: ' & repo);
+		} else {
+			Sibelius.MessageBox('対象 repo: ' & repo & ' / 管轄外メッセージは表示される設定です。変更する場合は setup.sh を再実行してください。');
+		}
+		return True;
+	}"
+}
