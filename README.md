@@ -19,6 +19,7 @@ Sibelius の譜面ファイル（.sib）を、保存のたびに GitHub の **pr
 ├─ LICENSE              MIT ライセンス
 ├─ AI_SETUP_PROMPT.md   AI エージェントにセットアップを任せるためのプロンプト
 ├─ AGENTS.md            この repo で作業するエージェント向けのルール
+├─ .gitignore           Python のキャッシュや OS の管理ファイルを repo に上げないための指定
 ├─ _system/             道具領域（プラグイン、ヘルパー、セットアップ）
 └─ my_songs/            既定の置き場
    └─ sample_song/      サンプル（試し運転用）

@@ -244,11 +244,20 @@ if [ "$DRY_RUN" = "1" ]; then
     say "(dry-run) ランチャーを $LAUNCHER に書きます"
 else
     mkdir -p "$CONFIG_DIR"
-    cat > "$LAUNCHER" <<EOF
-#!/bin/sh
-# setup.sh が生成。keeper.py の場所をプラグインへ渡すためのランチャー。
-exec /usr/bin/env python3 "$KEEPER_PY" "\$@"
-EOF
+    python3 - "$LAUNCHER" "$KEEPER_PY" <<'PYEOF'
+import sys
+dst, keeper = sys.argv[1], sys.argv[2]
+# パスは二重引用符で埋め込む。引用符・$・バッククォート・バックスラッシュは
+# エスケープし、clone パスに特殊文字が含まれても壊れないようにする
+# (通常のパスでは従来の heredoc 生成とバイト単位で同一の内容になる)
+esc = (keeper.replace("\\", "\\\\").replace('"', '\\"')
+       .replace("$", "\\$").replace("`", "\\`"))
+with open(dst, "w", encoding="utf-8") as f:
+    f.write("#!/bin/sh\n")
+    f.write("# setup.sh が生成。keeper.py の場所をプラグインへ渡すためのランチャー。\n")
+    f.write('exec /usr/bin/env python3 "%s" "$@"\n' % esc)
+print("launcher written: %s" % dst)
+PYEOF
     chmod +x "$LAUNCHER"
     ok "ランチャーを書きました: $LAUNCHER"
 fi
@@ -273,10 +282,21 @@ if [ "$(uname)" = "Darwin" ] && [ -f "$PLIST_SRC" ]; then
         say "(dry-run) LaunchAgent を $LA_PLIST に配置し、読み込みます"
     else
         mkdir -p "$LA_DIR" "$HOME/Library/Logs/sibelius-git-keeper"
-        sed -e "s|__WATCHER_PATH__|$SCRIPT_DIR/watcher/watcher.py|g" \
-            -e "s|__REPO_ROOT__|$REPO_ROOT|g" \
-            -e "s|__HOME__|$HOME|g" \
-            "$PLIST_SRC" > "$LA_PLIST"
+        python3 - "$PLIST_SRC" "$LA_PLIST" "$SCRIPT_DIR/watcher/watcher.py" "$REPO_ROOT" "$HOME" <<'PYEOF'
+import sys
+src, dst = sys.argv[1], sys.argv[2]
+watcher, repo, home = sys.argv[3], sys.argv[4], sys.argv[5]
+with open(src, "r", encoding="utf-8") as f:
+    text = f.read()
+# sed だと置換先に | や & が含まれる clone パスで壊れるため、プラグイン
+# 生成と同じ Python の文字列置換で実際の値へ寄せる
+text = text.replace("__WATCHER_PATH__", watcher)
+text = text.replace("__REPO_ROOT__", repo)
+text = text.replace("__HOME__", home)
+with open(dst, "w", encoding="utf-8") as f:
+    f.write(text)
+print("LaunchAgent plist written: %s" % dst)
+PYEOF
         launchctl unload "$LA_PLIST" >/dev/null 2>&1 || true
         if launchctl load "$LA_PLIST" 2>/dev/null; then
             ok "監視 (LaunchAgent) を登録しました"

@@ -32,6 +32,7 @@ import datetime
 import json
 import os
 import plistlib
+import re
 import subprocess
 import sys
 import time
@@ -424,7 +425,7 @@ def cmd_status(kp, filepath, open_result):
 # 判定結果は cmds_state (人が読む用) と cmds_unassigned.flag (プラグインの
 # Initialize が FileExists で読む用) に維持する。更新は watcher と
 # check-shortcut が行う。plist はファイル直読み (plistlib) とする。
-# 実機確認 (2026-11-15, Air): defaults read とファイル直読みは同値で、
+# 実機確認 (2026-11-15): defaults read とファイル直読みは同値で、
 # cfprefsd は外部からのファイル変更を即時に反映する。ただし Sibelius
 # 自身は起動中 plist を書き戻さない (現行セッション開始前の mtime のまま)
 # ため、セッション中の変更は終了時の書き戻しまでは見えないことがある。
@@ -567,7 +568,15 @@ def cmd_config(kp, repo_path, show):
     return 0
 
 
+FLAG_NAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
 def cmd_flag(kp, name, on, off):
+    # フラグ名はファイル名に直接使うため、パス区切りや空白などを含む
+    # 名前は受け付けない (プラグインからの呼び出しは固定名のみ)
+    if not name or not FLAG_NAME_RE.match(name):
+        print("ERROR: 不正なフラグ名です: %r (使える文字は英数字・ハイフン・アンダースコア)" % name)
+        return 1
     flag_path = os.path.join(kp.config_dir, "%s.flag" % name)
     if on:
         os.makedirs(kp.config_dir, exist_ok=True)

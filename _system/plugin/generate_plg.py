@@ -4,7 +4,7 @@
 .plg の生成スクリプト。
 
 src/*.plg.txt (UTF-8 のソース) から、同階層に *.plg を生成する。
-符号化は UTF-16BE + BOM (Drum Pattern Palette プロジェクトの実績に倣う)。
+符号化は UTF-16BE + BOM。
 
 生成した .plg には __REPO_ROOT__ / __HOME__ のプレースホルダが残る。
 setup.sh が配置時に実際の値へ置換してから Plugins フォルダへ入れる。
